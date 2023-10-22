@@ -1,0 +1,11 @@
+{
+	"id": "obsidian-arena-plugin",
+	"name": "Are.na Plugin",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Unofficial Are.na plugin for Obsidian.",
+	"author": "",
+	"authorUrl": "",
+	"fundingUrl": "",
+	"isDesktopOnly": true
+}
