@@ -7,8 +7,14 @@ import {
 	PluginSettingTab,
 	Setting,
 	TFile,
+	addIcon,
 	requestUrl,
 } from "obsidian";
+
+addIcon(
+	"arena-logo-icon",
+	"<path fill='currentColor' d='M48.4699 10.3695C48.7583 8.64812 51.2414 8.64812 51.5298 10.3695L56.0272 37.212C56.1879 38.1711 57.1869 38.7458 58.1008 38.4049L83.6797 28.8645C85.32 28.2527 86.5615 30.3954 85.2096 31.5049L64.1282 48.8071C63.3749 49.4253 63.3749 50.5747 64.1282 51.1929L85.2096 68.4951C86.5615 69.6046 85.32 71.7472 83.6797 71.1354L58.1008 61.595C57.1869 61.2542 56.1879 61.8289 56.0272 62.788L51.5298 89.6305C51.2414 91.3518 48.7583 91.3518 48.4699 89.6305L43.9725 62.788C43.8118 61.8289 42.8128 61.2542 41.8989 61.595L16.32 71.1354C14.6797 71.7472 13.4382 69.6046 14.7901 68.4951L35.8715 51.1929C36.6248 50.5747 36.6248 49.4253 35.8715 48.8071L14.7901 31.5049C13.4382 30.3954 14.6797 28.2527 16.32 28.8645L41.8989 38.4049C42.8128 38.7458 43.8118 38.1711 43.9725 37.212L48.4699 10.3695Z'>"
+);
 
 const ARENA_DIR = "are.na";
 const ARENA_ACCESS_TOKEN_AUTH_URL = "https://arena-rn.vercel.app/api/auth";
@@ -69,16 +75,28 @@ export default class ArenaPlugin extends Plugin {
 			});
 		}
 
+		const arenaDir = this.app.vault.getAbstractFileByPath(
+			this.settings.arenaDir
+		);
+
+		if (!arenaDir) {
+			await this.app.vault.createFolder(this.settings.arenaDir);
+		}
+
 		this.app.workspace.on("file-menu", (menu, file) => {
 			console.log("file-menu", menu, file);
 			if (file.parent?.name.includes(ARENA_DIR)) {
 				menu.addItem((item) => {
 					// open in arena
-					item.setTitle("Open in Are.na").onClick(async () => {
-						window.open(
-							`https://are.na/block/${file.name.split(".")[0]}`
-						);
-					});
+					item.setTitle("Open in Are.na")
+						.onClick(async () => {
+							window.open(
+								`https://are.na/block/${
+									file.name.split(".")[0]
+								}`
+							);
+						})
+						.setIcon("arena-logo-icon");
 				});
 			}
 		});
@@ -274,6 +292,7 @@ class ArenaSettingsTab extends PluginSettingTab {
 								if (code) {
 									this.plugin.settings.arenaToken = code;
 									await this.plugin.saveSettings();
+									this.display();
 								} else {
 									console.log("no code");
 								}
