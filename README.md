@@ -1,5 +1,13 @@
-# Unofficial Are.na plugin for Obsidian
+# Are.na plugin for Obsidian
 
-This plugin allows you to save Are.na blocks in your Obsidian notes.
+Allows you to save [Are.na](are.na/about) blocks as Obsidian notes.
 
-# TODO readme
+![demo](./.github/demo.gif)
+
+## Features
+
+-   Local first, save Are.na blocks in your Obsidian notes
+-   Display Are.na blocks in your Obsidian notes, block <-> note
+-   Support for all block types
+-   Easily open Are.na blocks in your browser
+-   No DB -> file name is the block id
