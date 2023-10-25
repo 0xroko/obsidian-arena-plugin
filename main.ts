@@ -11,6 +11,7 @@ import {
 	requestUrl,
 } from "obsidian";
 
+// compliant with icon guidelines
 addIcon(
 	"arena-logo-icon",
 	"<path fill='currentColor' d='M48.4699 10.3695C48.7583 8.64812 51.2414 8.64812 51.5298 10.3695L56.0272 37.212C56.1879 38.1711 57.1869 38.7458 58.1008 38.4049L83.6797 28.8645C85.32 28.2527 86.5615 30.3954 85.2096 31.5049L64.1282 48.8071C63.3749 49.4253 63.3749 50.5747 64.1282 51.1929L85.2096 68.4951C86.5615 69.6046 85.32 71.7472 83.6797 71.1354L58.1008 61.595C57.1869 61.2542 56.1879 61.8289 56.0272 62.788L51.5298 89.6305C51.2414 91.3518 48.7583 91.3518 48.4699 89.6305L43.9725 62.788C43.8118 61.8289 42.8128 61.2542 41.8989 61.595L16.32 71.1354C14.6797 71.7472 13.4382 69.6046 14.7901 68.4951L35.8715 51.1929C36.6248 50.5747 36.6248 49.4253 35.8715 48.8071L14.7901 31.5049C13.4382 30.3954 14.6797 28.2527 16.32 28.8645L41.8989 38.4049C42.8128 38.7458 43.8118 38.1711 43.9725 37.212L48.4699 10.3695Z'>"
@@ -149,6 +150,7 @@ export default class ArenaPlugin extends Plugin {
 			return file;
 		} catch (error) {
 			console.log("Error saving block", error);
+			new Notice("Error saving block");
 			return null;
 		}
 	}
@@ -193,23 +195,6 @@ export default class ArenaPlugin extends Plugin {
 		this.addCommand({
 			id: "insert-area-block",
 			name: "Insert Are.na block",
-			editorCallback: (editor, view) => {
-				new InsertBlockModal(this.app, async (url) => {
-					const id = parseArenaUrl(url);
-					if (!id) {
-						new Notice("Invalid Are.na url");
-						return;
-					}
-
-					const file = await this.saveBlock(id);
-
-					if (!file) {
-						return;
-					}
-
-					editor.replaceSelection(`![[${file.name}]]`);
-				}).open();
-			},
 			callback: () => {
 				new InsertBlockModal(this.app, async (url) => {
 					const id = parseArenaUrl(url);
@@ -244,6 +229,28 @@ export default class ArenaPlugin extends Plugin {
 							file: file,
 						});
 					}
+				}).open();
+			},
+		});
+
+		this.addCommand({
+			id: "insert-area-block-editor",
+			name: "Insert Are.na block (editor)",
+			editorCallback: (editor, view) => {
+				new InsertBlockModal(this.app, async (url) => {
+					const id = parseArenaUrl(url);
+					if (!id) {
+						new Notice("Invalid Are.na url!");
+						return;
+					}
+
+					const file = await this.saveBlock(id);
+
+					if (!file) {
+						return;
+					}
+
+					editor.replaceSelection(`![[${file.name}]]`);
 				}).open();
 			},
 		});
@@ -347,22 +354,20 @@ class ArenaSettingsTab extends PluginSettingTab {
 							if (t.redirectURL?.includes("localhost:3000")) {
 								const url = new URL(t.redirectURL);
 								const code = url.searchParams.get("code");
-								console.log(code);
+
 								if (code) {
 									this.plugin.settings.arenaToken = code;
 									await this.plugin.saveSettings();
 									this.display();
 								} else {
-									console.log("no code");
+									new Notice("Error logging in");
 								}
 
 								browser.close();
 							}
 						});
 
-						browser.on("closed", () => {
-							console.log("window closed");
-						});
+						browser.on("closed", () => {});
 					})
 				);
 		} else {
@@ -375,6 +380,8 @@ class ArenaSettingsTab extends PluginSettingTab {
 					b.setButtonText("Logout").onClick(async () => {
 						this.plugin.settings.arenaToken = null;
 						await this.plugin.saveSettings();
+
+						new Notice("Logged out, successfully");
 					})
 				);
 		}
