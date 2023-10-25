@@ -54,15 +54,103 @@ export default class ArenaPlugin extends Plugin {
 	arenaClient: ArenaClient;
 
 	async fetchAcessToken(code: string) {
-		const res = await fetch("https://arena-rn.vercel.app/api/token", {
-			body: JSON.stringify({ code }),
-			method: "POST",
-			mode: "cors",
-			credentials: "include",
-		});
-		const data = await res.json();
-		this.settings.arenaAccessToken = data.access_token;
-		await this.saveSettings();
+		// offline
+		try {
+			const res = await fetch("https://arena-rn.vercel.app/api/token", {
+				body: JSON.stringify({ code }),
+				method: "POST",
+				mode: "cors",
+				credentials: "include",
+			});
+			const data = await res.json();
+			this.settings.arenaAccessToken = data.access_token;
+			await this.saveSettings();
+		} catch (error) {
+			console.log("Error fetching access token", error);
+		}
+	}
+
+	async createFileOrReplace(path: string, data: string) {
+		// check if file exists
+		const file = this.app.vault.getAbstractFileByPath(path);
+		if (file && file instanceof TFile) {
+			this.app.vault.modify(file, data);
+			return file;
+		}
+
+		const newFile = await this.app.vault.create(path, data);
+		return newFile;
+	}
+
+	async createFileOrReplaceBinary(path: string, data: ArrayBuffer) {
+		// check if file exists
+		const file = this.app.vault.getAbstractFileByPath(path);
+		if (file && file instanceof TFile) {
+			this.app.vault.modifyBinary(file, data);
+			return file;
+		}
+
+		const newFile = await this.app.vault.createBinary(path, data);
+		return newFile;
+	}
+
+	async saveBlock(blockId: string) {
+		try {
+			// @ts-ignore
+			const block = await this.arenaClient.block(blockId).get();
+			let file: TFile | null = null;
+			if (block.class === "Image" && block.image) {
+				const extension = block.image.content_type.split("/")[1];
+
+				const arrayBuffer = await requestUrl(block.image.original.url)
+					.arrayBuffer;
+
+				// save image to attachments folder
+				file = await this.createFileOrReplaceBinary(
+					`${ARENA_DIR}/${block.id}.${extension}`,
+					arrayBuffer
+				);
+			} else if (block.embed) {
+				file = await this.createFileOrReplace(
+					`${ARENA_DIR}/${block.id}.md`,
+					`<html>
+						${block.embed.html}
+					</html>`
+				);
+			} else if (block.class === "Text") {
+				// save image to attachments folder
+				file = await this.createFileOrReplace(
+					`${ARENA_DIR}/${block.id}.md`,
+					block.content || ""
+				);
+			} else if (block.class === "Link") {
+				let imgFile: TFile | null = null;
+				// also dowload image if it exists
+				if (block.image) {
+					const extension = block.image.content_type.split("/")[1];
+					const arrayBuffer = await requestUrl(
+						block.image.original.url
+					).arrayBuffer;
+					imgFile = await this.createFileOrReplaceBinary(
+						`${ARENA_DIR}/${block.id}.${extension}`,
+						arrayBuffer
+					);
+				}
+				file = await this.createFileOrReplace(
+					`${ARENA_DIR}/${block.id}.md`,
+					`[![[${imgFile?.name}]]](${block.source?.url})`
+				);
+			}
+			if (!file) {
+				new Notice("Could not create file");
+
+				return;
+			}
+			return file;
+		} catch (error) {
+			console.log("Error saving block", error);
+			return null;
+		}
 	}
 
 	async onload() {
@@ -105,6 +193,23 @@ export default class ArenaPlugin extends Plugin {
 		this.addCommand({
 			id: "insert-area-block",
 			name: "Insert Are.na block",
+			editorCallback: (editor, view) => {
+				new InsertBlockModal(this.app, async (url) => {
+					const id = parseArenaUrl(url);
+					if (!id) {
+						new Notice("Invalid Are.na url");
+						return;
+					}
+
+					const file = await this.saveBlock(id);
+
+					if (!file) {
+						return;
+					}
+
+					editor.replaceSelection(`![[${file.name}]]`);
+				}).open();
+			},
 			callback: () => {
 				new InsertBlockModal(this.app, async (url) => {
 					const id = parseArenaUrl(url);
@@ -112,64 +217,18 @@ export default class ArenaPlugin extends Plugin {
 						new Notice("Invalid Are.na url");
 						return;
 					}
-					const block = await this.arenaClient.block(id as any).get();
-					let file: TFile | null = null;
-					if (block.class === "Image" && block.image) {
-						const extension =
-							block.image.content_type.split("/")[1];
 
-						const arrayBuffer = await requestUrl(
-							block.image.original.url
-						).arrayBuffer;
-
-						// save image to attachments folder
-						file = await this.app.vault.createBinary(
-							`${ARENA_DIR}/${block.id}.${extension}`,
-							arrayBuffer
-						);
-					} else if (block.embed) {
-						file = await this.app.vault.create(
-							`${ARENA_DIR}/${block.id}.md`,
-							`<html>
-							 ${block.embed.html}
-							</html>
-							`
-						);
-					} else if (block.class === "Text") {
-						// save image to attachments folder
-						file = await this.app.vault.create(
-							`${ARENA_DIR}/${block.id}.md`,
-							block.content || ""
-						);
-					} else if (block.class === "Link") {
-						let imgFile: TFile | null = null;
-						// also dowload image if it exists
-						if (block.image) {
-							const extension =
-								block.image.content_type.split("/")[1];
-							const arrayBuffer = await requestUrl(
-								block.image.original.url
-							).arrayBuffer;
-							imgFile = await this.app.vault.createBinary(
-								`${ARENA_DIR}/${block.id}.${extension}`,
-								arrayBuffer
-							);
-						}
-						file = await this.app.vault.create(
-							`${ARENA_DIR}/${block.id}.md`,
-							`[![[${imgFile?.name}]]](${block.source?.url})`
-						);
-					}
+					const file = await this.saveBlock(id);
 
 					if (!file) {
-						new Notice("Could not create file");
 						return;
 					}
+
 					const canvasView =
 						this.app.workspace.getActiveViewOfType(ItemView);
 					if (canvasView?.getViewType() === "canvas") {
 						// hot mess since there's no api for this
-						const canvas = (canvasView as any)?.canvas as any;
+						const canvas = (canvasView as any)?.canvas;
 						/*
 						new oX(i,(function(e) {
 							i.createFileNode({
