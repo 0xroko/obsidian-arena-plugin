@@ -165,16 +165,17 @@ export default class ArenaPlugin extends Plugin {
 			});
 		}
 
-		const arenaDir = this.app.vault.getAbstractFileByPath(
-			this.settings.arenaDir
-		);
+		this.app.workspace.onLayoutReady(async () => {
+			const arenaDir = this.app.vault.getAbstractFileByPath(
+				this.settings.arenaDir
+			);
 
-		if (!arenaDir) {
-			await this.app.vault.createFolder(this.settings.arenaDir);
-		}
+			if (!arenaDir) {
+				await this.app.vault.createFolder(this.settings.arenaDir);
+			}
+		});
 
 		this.app.workspace.on("file-menu", (menu, file) => {
-			console.log("file-menu", menu, file);
 			if (file.parent?.name.includes(ARENA_DIR)) {
 				menu.addItem((item) => {
 					// open in arena
@@ -326,7 +327,6 @@ class ArenaSettingsTab extends PluginSettingTab {
 		const { containerEl } = this;
 
 		containerEl.empty();
-		console.log(this.plugin.settings.arenaToken);
 
 		if (!this.plugin.settings.arenaToken) {
 			new Setting(containerEl)
@@ -380,8 +380,8 @@ class ArenaSettingsTab extends PluginSettingTab {
 					b.setButtonText("Logout").onClick(async () => {
 						this.plugin.settings.arenaToken = null;
 						await this.plugin.saveSettings();
-
 						new Notice("Logged out, successfully");
+						this.display();
 					})
 				);
 		}
