@@ -95,6 +95,7 @@ export default class ArenaPlugin extends Plugin {
 		return newFile;
 	}
 
+	// main function returns file for further use (e.g. insert into editor)
 	async saveBlock(blockId: string) {
 		try {
 			// @ts-ignore
@@ -140,6 +141,13 @@ export default class ArenaPlugin extends Plugin {
 				file = await this.createFileOrReplace(
 					`${ARENA_DIR}/${block.id}.md`,
 					`[![[${imgFile?.name}]]](${block.source?.url})`
+				);
+			} else if (block.class === "Attachment" && block.attachment) {
+				const arrayBuffer = await requestUrl(block.attachment.url)
+					.arrayBuffer;
+				file = await this.createFileOrReplaceBinary(
+					`${ARENA_DIR}/${block.id}.${block.attachment.extension}`,
+					arrayBuffer
 				);
 			}
 			if (!file) {
