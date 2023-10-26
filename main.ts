@@ -155,6 +155,12 @@ export default class ArenaPlugin extends Plugin {
 		}
 	}
 
+	isLogged() {
+		return !!this.settings.arenaToken;
+	}
+
+	async loadCommands() {}
+
 	async onload() {
 		await this.loadSettings();
 
@@ -164,16 +170,6 @@ export default class ArenaPlugin extends Plugin {
 				token: this.settings.arenaAccessToken,
 			});
 		}
-
-		this.app.workspace.onLayoutReady(async () => {
-			const arenaDir = this.app.vault.getAbstractFileByPath(
-				this.settings.arenaDir
-			);
-
-			if (!arenaDir) {
-				await this.app.vault.createFolder(this.settings.arenaDir);
-			}
-		});
 
 		this.app.workspace.on("file-menu", (menu, file) => {
 			if (file.parent?.name.includes(ARENA_DIR)) {
@@ -192,74 +188,112 @@ export default class ArenaPlugin extends Plugin {
 			}
 		});
 
-		// This adds an editor command that can perform some operation on the current editor instance
+		this.addSettingTab(new ArenaSettingsTab(this.app, this));
+
+		const checkCallback = (checking: boolean) => {
+			if (this.isLogged() && !this.app.workspace.activeEditor) {
+				if (!checking) {
+					new InsertBlockModal(this.app, async (url) => {
+						const id = parseArenaUrl(url);
+						if (!id) {
+							new Notice("Invalid Are.na url");
+							return;
+						}
+
+						const file = await this.saveBlock(id);
+
+						if (!file) {
+							return;
+						}
+
+						const canvasView =
+							this.app.workspace.getActiveViewOfType(ItemView);
+						if (canvasView?.getViewType() === "canvas") {
+							// hot mess since there's no api for this
+							const canvas = (canvasView as any)?.canvas;
+							/*
+					new oX(i,(function(e) {
+						i.createFileNode({
+								pos: t,
+								size: n,
+								file: e
+						})
+					}
+				*/
+							canvas.createFileNode({
+								pos: canvas.pointer,
+								size: canvas.config.defaultFileNodeDimensions,
+								file: file,
+							});
+						}
+					}).open();
+				}
+				return true;
+			}
+
+			return false;
+		};
+
 		this.addCommand({
 			id: "insert-area-block",
 			name: "Insert Are.na block",
-			callback: () => {
-				new InsertBlockModal(this.app, async (url) => {
-					const id = parseArenaUrl(url);
-					if (!id) {
-						new Notice("Invalid Are.na url");
-						return;
-					}
-
-					const file = await this.saveBlock(id);
-
-					if (!file) {
-						return;
-					}
-
-					const canvasView =
-						this.app.workspace.getActiveViewOfType(ItemView);
-					if (canvasView?.getViewType() === "canvas") {
-						// hot mess since there's no api for this
-						const canvas = (canvasView as any)?.canvas;
-						/*
-						new oX(i,(function(e) {
-							i.createFileNode({
-									pos: t,
-									size: n,
-									file: e
-							})
-						}
-					*/
-						canvas.createFileNode({
-							pos: canvas.pointer,
-							size: canvas.config.defaultFileNodeDimensions,
-							file: file,
-						});
-					}
-				}).open();
-			},
+			checkCallback: checkCallback,
 		});
+
+		// editorCheckCallback with this binding
+		const editorCheckCallback = (
+			checking: boolean,
+			editor: { replaceSelection: (arg0: string) => void }
+		) => {
+			if (this.isLogged()) {
+				if (!checking) {
+					new InsertBlockModal(this.app, async (url) => {
+						const id = parseArenaUrl(url);
+						if (!id) {
+							new Notice("Invalid Are.na url!");
+							return;
+						}
+
+						const file = await this.saveBlock(id);
+
+						if (!file) {
+							return;
+						}
+
+						editor.replaceSelection(`![[${file.name}]]`);
+					}).open();
+				}
+				return true;
+			}
+			return false;
+		};
 
 		this.addCommand({
 			id: "insert-area-block-editor",
 			name: "Insert Are.na block (editor)",
-			editorCallback: (editor, view) => {
-				new InsertBlockModal(this.app, async (url) => {
-					const id = parseArenaUrl(url);
-					if (!id) {
-						new Notice("Invalid Are.na url!");
-						return;
-					}
-
-					const file = await this.saveBlock(id);
-
-					if (!file) {
-						return;
-					}
-
-					editor.replaceSelection(`![[${file.name}]]`);
-				}).open();
-			},
+			editorCheckCallback: editorCheckCallback,
 		});
 
-		this.addSettingTab(new ArenaSettingsTab(this.app, this));
+		this.app.workspace.onLayoutReady(async () => {
+			const arenaDir = this.app.vault.getAbstractFileByPath(
+				this.settings.arenaDir
+			);
+
+			if (!arenaDir) {
+				await this.app.vault.createFolder(this.settings.arenaDir);
+			}
+		});
+
+		// This adds an editor command that can perform some operation on the current editor instance
 	}
 
 	onunload() {}
+
+	async logout() {
+		this.settings.arenaToken = null;
+		this.settings.arenaAccessToken = null;
+		await this.saveSettings();
+	}
 
 	async loadSettings() {
 		this.settings = Object.assign(
@@ -378,7 +412,8 @@ class ArenaSettingsTab extends PluginSettingTab {
 				.setDesc(tokenCensor)
 				.addButton((b) =>
 					b.setButtonText("Logout").onClick(async () => {
-						this.plugin.settings.arenaToken = null;
+						this.plugin.logout();
+
 						await this.plugin.saveSettings();
 						new Notice("Logged out, successfully");
 						this.display();
