@@ -235,7 +235,7 @@ export default class ArenaPlugin extends Plugin {
 		};
 
 		this.addCommand({
-			id: "insert-area-block",
+			id: "insert-arena-block",
 			name: "Insert Are.na block",
 			checkCallback: checkCallback,
 		});
@@ -269,7 +269,7 @@ export default class ArenaPlugin extends Plugin {
 		};
 
 		this.addCommand({
-			id: "insert-area-block-editor",
+			id: "insert-arena-block-editor",
 			name: "Insert Are.na block (editor)",
 			editorCheckCallback: editorCheckCallback,
 		});
