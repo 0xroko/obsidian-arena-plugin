@@ -3,9 +3,8 @@
 	"name": "Are.na unofficial",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Unofficial Are.na plugin for Obsidian.",
+	"description": "Allows you to save Are.na blocks as notes.",
 	"author": "0xroko",
 	"authorUrl": "https://github.com/0xroko",
-	"fundingUrl": "",
-	"isDesktopOnly": true
+	"isDesktopOnly": false
 }
