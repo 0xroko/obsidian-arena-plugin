@@ -1,3 +1,5 @@
+import { BrowserWindow } from "@electron/remote";
+import { ArenaClient } from "arena-ts";
 import {
 	App,
 	ItemView,
@@ -48,22 +50,18 @@ const DEFAULT_SETTINGS: ArenaPluginSettings = {
 	arenaDir: ARENA_DIR,
 };
 
-import { ArenaClient } from "arena-ts";
-
 export default class ArenaPlugin extends Plugin {
 	settings: ArenaPluginSettings;
 	arenaClient: ArenaClient;
 
 	async fetchAcessToken(code: string) {
-		// offline
 		try {
-			const res = await fetch("https://arena-rn.vercel.app/api/token", {
+			const res = await requestUrl({
+				url: "https://arena-rn.vercel.app/api/token",
 				body: JSON.stringify({ code }),
 				method: "POST",
-				mode: "cors",
-				credentials: "include",
 			});
-			const data = await res.json();
+			const data = await res.json;
 			this.settings.arenaAccessToken = data.access_token;
 			await this.saveSettings();
 		} catch (error) {
@@ -179,22 +177,24 @@ export default class ArenaPlugin extends Plugin {
 			});
 		}
 
-		this.app.workspace.on("file-menu", (menu, file) => {
-			if (file.parent?.name.includes(ARENA_DIR)) {
-				menu.addItem((item) => {
-					// open in arena
-					item.setTitle("Open in Are.na")
-						.onClick(async () => {
-							window.open(
-								`https://are.na/block/${
-									file.name.split(".")[0]
-								}`
-							);
-						})
-						.setIcon("arena-logo-icon");
-				});
-			}
-		});
+		this.registerEvent(
+			this.app.workspace.on("file-menu", (menu, file) => {
+				if (file.parent?.name.includes(ARENA_DIR)) {
+					menu.addItem((item) => {
+						// open in arena
+						item.setTitle("Open in Are.na")
+							.onClick(async () => {
+								window.open(
+									`https://are.na/block/${
+										file.name.split(".")[0]
+									}`
+								);
+							})
+							.setIcon("arena-logo-icon");
+					});
+				}
+			})
+		);
 
 		this.addSettingTab(new ArenaSettingsTab(this.app, this));
 
@@ -354,8 +354,6 @@ class InsertBlockModal extends Modal {
 		contentEl.empty();
 	}
 }
-
-import { BrowserWindow } from "@electron/remote";
 
 class ArenaSettingsTab extends PluginSettingTab {
 	plugin: ArenaPlugin;
