@@ -5,6 +5,7 @@ import {
 	ItemView,
 	Modal,
 	Notice,
+	Platform,
 	Plugin,
 	PluginSettingTab,
 	Setting,
@@ -165,6 +166,10 @@ export default class ArenaPlugin extends Plugin {
 		return !!this.settings.arenaToken;
 	}
 
+	isMobile() {
+		return Platform.isMobile;
+	}
+
 	async loadCommands() {}
 
 	async onload() {
@@ -197,6 +202,21 @@ export default class ArenaPlugin extends Plugin {
 		);
 
 		this.addSettingTab(new ArenaSettingsTab(this.app, this));
+
+		// all of the commands below are are only available on desktop (requires electron APIs)
+		if (this.isMobile()) {
+			return;
+		}
+
+		this.app.workspace.onLayoutReady(async () => {
+			const arenaDir = this.app.vault.getAbstractFileByPath(
+				this.settings.arenaDir
+			);
+
+			if (!arenaDir) {
+				await this.app.vault.createFolder(this.settings.arenaDir);
+			}
+		});
 
 		const checkCallback = (checking: boolean) => {
 			if (this.isLogged() && !this.app.workspace.activeEditor) {
@@ -281,18 +301,6 @@ export default class ArenaPlugin extends Plugin {
 			name: "Insert Are.na block (editor)",
 			editorCheckCallback: editorCheckCallback,
 		});
-
-		this.app.workspace.onLayoutReady(async () => {
-			const arenaDir = this.app.vault.getAbstractFileByPath(
-				this.settings.arenaDir
-			);
-
-			if (!arenaDir) {
-				await this.app.vault.createFolder(this.settings.arenaDir);
-			}
-		});
-
-		// This adds an editor command that can perform some operation on the current editor instance
 	}
 
 	onunload() {}
@@ -368,47 +376,56 @@ class ArenaSettingsTab extends PluginSettingTab {
 
 		containerEl.empty();
 
+		let message = `Login with Are.na to get your api token`;
+
+		if (this.plugin.isMobile()) {
+			message += `. You can only login (also add blocks) on desktop!`;
+		}
+
 		if (!this.plugin.settings.arenaToken) {
 			new Setting(containerEl)
 				.setName("Login with Are.na")
-				.setDesc("Login with Are.na to get your api token")
+				.setDesc(message)
 				.addButton((b) =>
-					b.setButtonText("Login").onClick(() => {
-						const browser = new BrowserWindow({
-							width: 600,
-							height: 800,
-							webPreferences: {
-								nodeIntegration: false, // We recommend disabling nodeIntegration for security.
-								contextIsolation: true, // We recommend enabling contextIsolation for security.
-								// see https://github.com/electron/electron/blob/master/docs/tutorial/security.md
-							},
-						});
+					b
+						.setButtonText("Login")
+						.setDisabled(this.plugin.isMobile())
+						.onClick(() => {
+							const browser = new BrowserWindow({
+								width: 600,
+								height: 800,
+								webPreferences: {
+									nodeIntegration: false, // We recommend disabling nodeIntegration for security.
+									contextIsolation: true, // We recommend enabling contextIsolation for security.
+									// see https://github.com/electron/electron/blob/master/docs/tutorial/security.md
+								},
+							});
 
-						browser.loadURL(ARENA_OAUTH_URL);
+							browser.loadURL(ARENA_OAUTH_URL);
 
-						const {
-							session: { webRequest },
-						} = browser.webContents;
+							const {
+								session: { webRequest },
+							} = browser.webContents;
 
-						webRequest.onBeforeRedirect(async (t) => {
-							if (t.redirectURL?.includes("localhost:3000")) {
-								const url = new URL(t.redirectURL);
-								const code = url.searchParams.get("code");
+							webRequest.onBeforeRedirect(async (t) => {
+								if (t.redirectURL?.includes("localhost:3000")) {
+									const url = new URL(t.redirectURL);
+									const code = url.searchParams.get("code");
 
-								if (code) {
-									this.plugin.settings.arenaToken = code;
-									await this.plugin.saveSettings();
-									this.display();
-								} else {
-									new Notice("Error logging in");
+									if (code) {
+										this.plugin.settings.arenaToken = code;
+										await this.plugin.saveSettings();
+										this.display();
+									} else {
+										new Notice("Error logging in");
+									}
+
+									browser.close();
 								}
+							});
 
-								browser.close();
-							}
-						});
-
-						browser.on("closed", () => {});
-					})
+							browser.on("closed", () => {});
+						})
 				);
 		} else {
 			const tokenCensor =
@@ -419,7 +436,6 @@ class ArenaSettingsTab extends PluginSettingTab {
 				.addButton((b) =>
 					b.setButtonText("Logout").onClick(async () => {
 						this.plugin.logout();
-
 						await this.plugin.saveSettings();
 						new Notice("Logged out, successfully");
 						this.display();
