@@ -175,13 +175,6 @@ export default class ArenaPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		if (this.settings.arenaToken) {
-			await this.fetchAcessToken(this.settings.arenaToken);
-			this.arenaClient = new ArenaClient({
-				token: this.settings.arenaAccessToken,
-			});
-		}
-
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file) => {
 				if (file.parent?.name.includes(ARENA_DIR)) {
@@ -206,6 +199,13 @@ export default class ArenaPlugin extends Plugin {
 		// all of the commands below are are only available on desktop (requires electron APIs)
 		if (this.isMobile()) {
 			return;
+		}
+
+		if (this.settings.arenaToken) {
+			await this.fetchAcessToken(this.settings.arenaToken);
+			this.arenaClient = new ArenaClient({
+				token: this.settings.arenaAccessToken,
+			});
 		}
 
 		this.app.workspace.onLayoutReady(async () => {
