@@ -1,4 +1,3 @@
-import { BrowserWindow } from "@electron/remote";
 import { ArenaClient } from "arena-ts";
 import {
 	App,
@@ -390,8 +389,10 @@ class ArenaSettingsTab extends PluginSettingTab {
 					b
 						.setButtonText("Login")
 						.setDisabled(this.plugin.isMobile())
-						.onClick(() => {
-							const browser = new BrowserWindow({
+						.onClick(async () => {
+							const electron = await import("@electron/remote");
+
+							const browser = new electron.BrowserWindow({
 								width: 600,
 								height: 800,
 								webPreferences: {
