@@ -20,13 +20,14 @@ addIcon(
 );
 
 const ARENA_DIR = "are.na";
-const ARENA_ACCESS_TOKEN_AUTH_URL = "https://arena-rn.vercel.app/api/auth";
+const ARENA_AUTH_CODE_URL = "https://arena-rn.vercel.app/api/auth";
+const ARENA_ACCESS_TOKEN_AUTH_URL = "https://arena-rn.vercel.app/api/token";
+
 const ARENA_CLIENT_ID = "E3-ICKxh6sLQiUqgxvEZI1oFEXXZVeyM-3F146AY3_k";
-const ARENA_OAUTH_URL = `http://dev.are.na/oauth/authorize
-?client_id=${ARENA_CLIENT_ID}
-&redirect_uri=${encodeURIComponent(ARENA_ACCESS_TOKEN_AUTH_URL)}
-&response_type=code 
-`;
+
+const ARENA_OAUTH_URL = `https://dev.are.na/oauth/authorize?client_id=${ARENA_CLIENT_ID}&redirect_uri=${encodeURIComponent(
+	ARENA_AUTH_CODE_URL
+)}&response_type=code`;
 
 const parseArenaUrl = (url: string) => {
 	// block/<id>
@@ -57,7 +58,7 @@ export default class ArenaPlugin extends Plugin {
 	async fetchAcessToken(code: string) {
 		try {
 			const res = await requestUrl({
-				url: "https://arena-rn.vercel.app/api/token",
+				url: ARENA_ACCESS_TOKEN_AUTH_URL,
 				body: JSON.stringify({ code }),
 				method: "POST",
 			});
@@ -66,6 +67,9 @@ export default class ArenaPlugin extends Plugin {
 			await this.saveSettings();
 		} catch (error) {
 			console.log("Error fetching access token", error);
+			new Notice(
+				"[Are.na] Error fetching access token, please try logging in again."
+			);
 		}
 	}
 
@@ -204,6 +208,14 @@ export default class ArenaPlugin extends Plugin {
 			await this.fetchAcessToken(this.settings.arenaToken);
 			this.arenaClient = new ArenaClient({
 				token: this.settings.arenaAccessToken,
+				fetch: (url, init) => {
+					return fetch(url, {
+						...init,
+						headers: {
+							...init?.headers,
+						},
+					});
+				},
 			});
 		}
 
@@ -395,11 +407,8 @@ class ArenaSettingsTab extends PluginSettingTab {
 							const browser = new electron.BrowserWindow({
 								width: 600,
 								height: 800,
-								webPreferences: {
-									nodeIntegration: false, // We recommend disabling nodeIntegration for security.
-									contextIsolation: true, // We recommend enabling contextIsolation for security.
-									// see https://github.com/electron/electron/blob/master/docs/tutorial/security.md
-								},
+								alwaysOnTop: true,
+								modal: true,
 							});
 
 							browser.loadURL(ARENA_OAUTH_URL);
@@ -416,7 +425,9 @@ class ArenaSettingsTab extends PluginSettingTab {
 									if (code) {
 										this.plugin.settings.arenaToken = code;
 										await this.plugin.saveSettings();
+										await this.plugin.fetchAcessToken(code);
 										this.display();
+										new Notice("Logged in, successfully");
 									} else {
 										new Notice("Error logging in");
 									}
