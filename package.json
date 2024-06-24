@@ -22,7 +22,6 @@
 		"typescript": "4.7.4"
 	},
 	"dependencies": {
-		"@electron/remote": "^2.0.12",
-		"arena-ts": "0.1.4"
+		"arena-ts": "^0.1.4"
 	}
 }
