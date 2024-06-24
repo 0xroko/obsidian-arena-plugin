@@ -71,7 +71,6 @@ export default class ArenaPlugin extends Plugin {
 	}
 
 	async initArenaClient() {
-		console.log("init arena client", this.settings.arenaToken);
 		this.arenaClient = new ArenaClient({
 			token: this.settings.arenaToken,
 		});
