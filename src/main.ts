@@ -33,12 +33,12 @@ const parseArenaUrl = (url: string) => {
 };
 
 interface ArenaPluginSettings {
-	arenaToken: string | null;
+	arenaPrivateAccessToken: string | null;
 	arenaDir: string;
 }
 
 const DEFAULT_SETTINGS: ArenaPluginSettings = {
-	arenaToken: null,
+	arenaPrivateAccessToken: null,
 	arenaDir: ARENA_DIR,
 };
 
@@ -72,7 +72,7 @@ export default class ArenaPlugin extends Plugin {
 
 	async initArenaClient() {
 		this.arenaClient = new ArenaClient({
-			token: this.settings.arenaToken,
+			token: this.settings.arenaPrivateAccessToken,
 		});
 	}
 
@@ -139,7 +139,7 @@ export default class ArenaPlugin extends Plugin {
 			return file;
 		} catch (error) {
 			if (error.status && error.status === 401) {
-				if (!this.settings.arenaToken) {
+				if (!this.settings.arenaPrivateAccessToken) {
 					new Notice(
 						"Following Are.na block requires a personal access token. Please enter one in the settings."
 					);
@@ -296,7 +296,7 @@ export default class ArenaPlugin extends Plugin {
 	onunload() {}
 
 	async logout() {
-		this.settings.arenaToken = null;
+		this.settings.arenaPrivateAccessToken = null;
 		await this.saveSettings();
 	}
 
@@ -373,9 +373,11 @@ class ArenaSettingsTab extends PluginSettingTab {
 			.addText((b) =>
 				b
 					.setPlaceholder("Paste your Are.na token here")
-					.setValue(this.plugin.settings.arenaToken || "")
+					.setValue(
+						this.plugin.settings.arenaPrivateAccessToken || ""
+					)
 					.onChange(async (value) => {
-						this.plugin.settings.arenaToken = value;
+						this.plugin.settings.arenaPrivateAccessToken = value;
 						this.plugin.saveSettings();
 						await this.plugin.initArenaClient();
 					})
