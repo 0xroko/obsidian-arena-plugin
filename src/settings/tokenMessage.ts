@@ -1,13 +1,27 @@
+export const createLink = (url: string, text: string) => {
+	const link = document.createElement("a");
+	link.href = url;
+	link.innerText = text;
+	link.target = "_blank";
+	return link;
+};
+
 export const buildTokenSettingsMessage = () => {
 	const message = document.createDocumentFragment();
 
-	const apiLink = document.createElement("a");
-	apiLink.href = "https://dev.are.na/oauth/applications";
-	apiLink.target = "_blank";
-	apiLink.innerText = "Are.na API";
+	message.appendChild(
+		document.createTextNode(
+			"Token is only required for saving private blocks."
+		)
+	);
+
+	message.appendChild(document.createElement("br"));
+
 	message.appendChild(document.createTextNode("Visit "));
 
-	message.appendChild(apiLink);
+	message.appendChild(
+		createLink("https://dev.are.na/oauth/applications", "Are.na API")
+	);
 
 	message.appendChild(
 		document.createTextNode(" to get your personal access token.")
@@ -27,14 +41,12 @@ export const buildTokenSettingsMessage = () => {
 		document.createTextNode("For a detailed guide, check out ")
 	);
 
-	const instructionsLink = document.createElement("a");
-
-	instructionsLink.href =
-		"https://github.com/0xroko/obsidian-arena-plugin#create-your-are.na-personal-access-token";
-	instructionsLink.target = "_blank";
-	instructionsLink.innerText =
-		" creating your Personal Access Token instructions";
-	message.appendChild(instructionsLink);
+	message.appendChild(
+		createLink(
+			"https://github.com/0xroko/obsidian-arena-plugin#create-your-are.na-personal-access-token",
+			"creating your Personal Access Token instructions"
+		)
+	);
 
 	message.appendChild(
 		document.createTextNode(" on how to create Personal Access Token.")
