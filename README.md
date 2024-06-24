@@ -8,6 +8,9 @@ Allows you to save [Are.na](are.na/about) blocks as Obsidian notes.
 
 ## Features
 
+> [!IMPORTANT]
+> If you want to save private blocks, you need to [create a personal access token](#create-your-arena-personal-access-token)
+
 -   Local first, save Are.na blocks in your Obsidian notes
 -   Display Are.na blocks in your Obsidian notes, block <-> note
 -   Support for all block types
@@ -18,9 +21,20 @@ If you want to see a feature implemented, open an issue or a PR.
 
 ## Usage
 
-### Login
+### Create your Are.na personal access token
 
-Navigate to the plugin settings and login with your Are.na account.
+1. Go to [dev.are.na/oauth/applications](https://dev.are.na/oauth/applications) and login with your Are.na account (this is the official Are.na API)
+   ![](./.github/ap.png)
+
+2. Create a new application
+   ![](./.github/ap2.png)
+
+-   Name the application whatever you want (e.g. Obsidian plugin)
+-   Set the redirect URI to `https://example.com` (it doesn't matter)
+-   Submit
+
+3. Copy the `Personal Access Token` and enter it in the plugin settings
+   ![](./.github/ap3.png)
 
 ### Insert block
 
