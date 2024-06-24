@@ -43,7 +43,7 @@ export const buildTokenSettingsMessage = () => {
 
 	message.appendChild(
 		createLink(
-			"https://github.com/0xroko/obsidian-arena-plugin#create-your-are.na-personal-access-token",
+			"https://github.com/0xroko/obsidian-arena-plugin?tab=readme-ov-file#create-your-arena-personal-access-token",
 			"creating your Personal Access Token instructions"
 		)
 	);
