@@ -1,7 +1,6 @@
 {
 	"id": "arena",
 	"name": "Are.na unofficial",
-	"version": "1.0.1",
 	"minAppVersion": "1.5.8",
 	"description": "Allows you to save Are.na blocks as notes.",
 	"author": "0xroko",
