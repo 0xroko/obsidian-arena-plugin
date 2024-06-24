@@ -12,6 +12,7 @@ import {
 	addIcon,
 	requestUrl,
 } from "obsidian";
+import { buildTokenSettingsMessage } from "src/settings/tokenMessage";
 
 // compliant with icon guidelines
 addIcon(
@@ -20,14 +21,6 @@ addIcon(
 );
 
 const ARENA_DIR = "are.na";
-const ARENA_AUTH_CODE_URL = "https://arena-rn.vercel.app/api/auth";
-const ARENA_ACCESS_TOKEN_AUTH_URL = "https://arena-rn.vercel.app/api/token";
-
-const ARENA_CLIENT_ID = "E3-ICKxh6sLQiUqgxvEZI1oFEXXZVeyM-3F146AY3_k";
-
-const ARENA_OAUTH_URL = `https://dev.are.na/oauth/authorize?client_id=${ARENA_CLIENT_ID}&redirect_uri=${encodeURIComponent(
-	ARENA_AUTH_CODE_URL
-)}&response_type=code`;
 
 const parseArenaUrl = (url: string) => {
 	// block/<id>
@@ -41,12 +34,10 @@ const parseArenaUrl = (url: string) => {
 
 interface ArenaPluginSettings {
 	arenaToken: string | null;
-	arenaAccessToken: string | null;
 	arenaDir: string;
 }
 
 const DEFAULT_SETTINGS: ArenaPluginSettings = {
-	arenaAccessToken: null,
 	arenaToken: null,
 	arenaDir: ARENA_DIR,
 };
@@ -54,24 +45,6 @@ const DEFAULT_SETTINGS: ArenaPluginSettings = {
 export default class ArenaPlugin extends Plugin {
 	settings: ArenaPluginSettings;
 	arenaClient: ArenaClient;
-
-	async fetchAcessToken(code: string) {
-		try {
-			const res = await requestUrl({
-				url: ARENA_ACCESS_TOKEN_AUTH_URL,
-				body: JSON.stringify({ code }),
-				method: "POST",
-			});
-			const data = await res.json;
-			this.settings.arenaAccessToken = data.access_token;
-			await this.saveSettings();
-		} catch (error) {
-			console.log("Error fetching access token", error);
-			new Notice(
-				"[Are.na] Error fetching access token, please try logging in again."
-			);
-		}
-	}
 
 	async createFileOrReplace(path: string, data: string) {
 		// check if file exists
@@ -95,6 +68,13 @@ export default class ArenaPlugin extends Plugin {
 
 		const newFile = await this.app.vault.createBinary(path, data);
 		return newFile;
+	}
+
+	async initArenaClient() {
+		console.log("init arena client", this.settings.arenaToken);
+		this.arenaClient = new ArenaClient({
+			token: this.settings.arenaToken,
+		});
 	}
 
 	// main function returns file for further use (e.g. insert into editor)
@@ -129,7 +109,7 @@ export default class ArenaPlugin extends Plugin {
 				);
 			} else if (block.class === "Link") {
 				let imgFile: TFile | null = null;
-				// also dowload image if it exists
+				// also download image if it exists
 				if (block.image) {
 					const extension = block.image.content_type.split("/")[1];
 					const arrayBuffer = await requestUrl(
@@ -159,6 +139,18 @@ export default class ArenaPlugin extends Plugin {
 			}
 			return file;
 		} catch (error) {
+			if (error.status && error.status === 401) {
+				if (!this.settings.arenaToken) {
+					new Notice(
+						"Following Are.na block requires a personal access token. Please enter one in the settings."
+					);
+					return null;
+				}
+				new Notice(
+					"Invalid Are.na token, please make sure it's correct."
+				);
+				return null;
+			}
 			console.log("Error saving block", error);
 			new Notice("Error saving block");
 			return null;
@@ -166,7 +158,8 @@ export default class ArenaPlugin extends Plugin {
 	}
 
 	isLogged() {
-		return !!this.settings.arenaToken;
+		// for now true because auth is not needed for getting
+		return true;
 	}
 
 	isMobile() {
@@ -204,20 +197,7 @@ export default class ArenaPlugin extends Plugin {
 			return;
 		}
 
-		if (this.settings.arenaToken) {
-			await this.fetchAcessToken(this.settings.arenaToken);
-			this.arenaClient = new ArenaClient({
-				token: this.settings.arenaAccessToken,
-				fetch: (url, init) => {
-					return fetch(url, {
-						...init,
-						headers: {
-							...init?.headers,
-						},
-					});
-				},
-			});
-		}
+		await this.initArenaClient();
 
 		this.app.workspace.onLayoutReady(async () => {
 			const arenaDir = this.app.vault.getAbstractFileByPath(
@@ -318,7 +298,6 @@ export default class ArenaPlugin extends Plugin {
 
 	async logout() {
 		this.settings.arenaToken = null;
-		this.settings.arenaAccessToken = null;
 		await this.saveSettings();
 	}
 
@@ -387,72 +366,20 @@ class ArenaSettingsTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		let message = `Login with Are.na to get your api token`;
+		const message = buildTokenSettingsMessage();
 
-		if (this.plugin.isMobile()) {
-			message += `. You can only login (also add blocks) on desktop!`;
-		}
-
-		if (!this.plugin.settings.arenaToken) {
-			new Setting(containerEl)
-				.setName("Login with Are.na")
-				.setDesc(message)
-				.addButton((b) =>
-					b
-						.setButtonText("Login")
-						.setDisabled(this.plugin.isMobile())
-						.onClick(async () => {
-							const electron = await import("@electron/remote");
-
-							const browser = new electron.BrowserWindow({
-								width: 600,
-								height: 800,
-								alwaysOnTop: true,
-								modal: true,
-							});
-
-							browser.loadURL(ARENA_OAUTH_URL);
-
-							const {
-								session: { webRequest },
-							} = browser.webContents;
-
-							webRequest.onBeforeRedirect(async (t) => {
-								if (t.redirectURL?.includes("localhost:3000")) {
-									const url = new URL(t.redirectURL);
-									const code = url.searchParams.get("code");
-
-									if (code) {
-										this.plugin.settings.arenaToken = code;
-										await this.plugin.saveSettings();
-										await this.plugin.fetchAcessToken(code);
-										this.display();
-										new Notice("Logged in, successfully");
-									} else {
-										new Notice("Error logging in");
-									}
-
-									browser.close();
-								}
-							});
-
-							browser.on("closed", () => {});
-						})
-				);
-		} else {
-			const tokenCensor =
-				this.plugin.settings.arenaToken.slice(0, 4) + "****";
-			new Setting(containerEl)
-				.setName("Current token")
-				.setDesc(tokenCensor)
-				.addButton((b) =>
-					b.setButtonText("Logout").onClick(async () => {
-						this.plugin.logout();
-						await this.plugin.saveSettings();
-						new Notice("Logged out, successfully");
-						this.display();
+		new Setting(containerEl)
+			.setName("Are.na Personal Access Token (optional)")
+			.setDesc(message)
+			.addText((b) =>
+				b
+					.setPlaceholder("Paste your Are.na token here")
+					.setValue(this.plugin.settings.arenaToken || "")
+					.onChange(async (value) => {
+						this.plugin.settings.arenaToken = value;
+						this.plugin.saveSettings();
+						await this.plugin.initArenaClient();
 					})
-				);
-		}
+			);
 	}
 }
